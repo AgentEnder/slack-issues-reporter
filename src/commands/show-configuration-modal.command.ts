@@ -129,9 +129,6 @@ export async function showConfigurationModal(channelId?: string) {
                         text: "Select private conversation",
                         emoji: true,
                     },
-                    filter: {
-                        include: ["private"],
-                    },
                     action_id: CONVERSATION_SELECT_ACTION,
                     response_url_enabled: true,
                     initial_conversation: channelId
