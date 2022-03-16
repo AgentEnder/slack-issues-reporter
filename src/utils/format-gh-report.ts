@@ -10,17 +10,18 @@ export function formatGhReport(repo: IGhRepo): string {
         ? repo.totalBugCount - repo.prevBugCount
         : null;
     const formattedBugDelta = formatDelta(bugDelta);
+    
+    const unlabeledDelta = repo.prevUnlabeledIssueCount
+        ? repo.unlabeledIssueCount - repo.prevUnlabeledIssueCount
+        : null;
+    const formattedUnlabeledDelta = formatDelta(unlabeledDelta);
 
     const header = `Issue Report for ${repo.url}
 \`\`\`
 Totals, Issues: ${repo.totalIssueCount} ${formattedIssueDelta} Bugs: ${repo.totalBugCount} ${formattedBugDelta}\n\n`;
 
-    let body = "";
-    let noScopeIssues = repo.totalIssueCount;
-    let noScopeBugs = repo.totalBugCount;
+    let body = `unlabeled: ${repo.unlabeledIssueCount} ${formattedUnlabeledDelta}`;
     for (const scope of repo.scopes) {
-        noScopeBugs -= scope.bugCount;
-        noScopeIssues -= scope.count;
         const issueDelta = scope.previousCount
             ? scope.count - scope.previousCount
             : null;

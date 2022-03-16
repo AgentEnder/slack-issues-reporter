@@ -36,6 +36,12 @@ export class GhRepo implements IGhRepo {
     prevIssueCount?: number | undefined;
 
     @Column("int")
+    unlabeledIssueCount: number;
+
+    @Column("int", { nullable: true })
+    prevUnlabeledIssueCount?: number | undefined;
+
+    @Column("int")
     totalBugCount: number;
 
     @Column("int", { nullable: true })

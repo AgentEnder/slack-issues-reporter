@@ -1,5 +1,4 @@
 import { Octokit } from "octokit";
-import { DeepPartial } from "typeorm";
 import { IGhRepo, IGhRepoScope } from "../models/gh-repo.model";
 
 export async function getGhRepo(
@@ -11,6 +10,7 @@ export async function getGhRepo(
 
     let total = 0;
     let totalBugs = 0;
+    let totalUnlabeledIssues = 0;
     const scopes: IGhRepoScope[] = scopeLabels.map((x) => ({
         tag: x,
         bugCount: 0,
@@ -25,13 +25,18 @@ export async function getGhRepo(
             if (bug) {
                 totalBugs += 1;
             }
+            let scoped = false;
             for (const scope of scopes) {
                 if (issue.labels.some((x) => x.name === scope.tag)) {
+                    scoped = true;
                     if (bug) {
                         scope.bugCount += 1;
                     }
                     scope.count += 1;
                 }
+            }
+            if (!scoped) {
+                totalUnlabeledIssues += 1;
             }
         }
     }
@@ -41,6 +46,7 @@ export async function getGhRepo(
         scopes: scopes,
         totalBugCount: totalBugs,
         totalIssueCount: total,
+        unlabeledIssueCount: totalUnlabeledIssues,
         url: url,
         slackChannelId: ''
     };

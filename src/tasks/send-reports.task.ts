@@ -29,6 +29,7 @@ async function main() {
             const {
                 totalBugCount: totalBugs,
                 totalIssueCount: total,
+                unlabeledIssueCount,
                 scopes,
             } = await getGhRepo(
                 repo.url,
@@ -55,6 +56,8 @@ async function main() {
             await scopesRepository.save(existingScopes);
             repo.prevBugCount = repo.totalBugCount;
             repo.prevIssueCount = repo.totalIssueCount;
+            repo.prevUnlabeledIssueCount = repo.unlabeledIssueCount;
+            repo.unlabeledIssueCount = unlabeledIssueCount;
             repo.totalBugCount = totalBugs;
             repo.totalIssueCount = total;
             await repoRepository.save(repo);

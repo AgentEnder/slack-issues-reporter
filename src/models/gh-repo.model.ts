@@ -7,6 +7,8 @@ export interface IGhRepo {
     prevIssueCount?: number;
     totalBugCount: number;
     prevBugCount?: number;
+    unlabeledIssueCount: number;
+    prevUnlabeledIssueCount?: number;
 }
 
 export interface IGhRepoScope {
