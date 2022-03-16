@@ -12,6 +12,7 @@ export async function registerGithubRepository(
     const {
         totalBugCount: totalBugs,
         totalIssueCount: total,
+        unlabeledIssueCount,
         scopes,
     } = await getGhRepo(githubUrl, scopeLabels, bugLabel);
 
@@ -63,7 +64,9 @@ export async function registerGithubRepository(
         entity.bugTag = bugLabel;
         entity.prevBugCount = entity.totalBugCount;
         entity.prevIssueCount = entity.totalIssueCount;
+        entity.prevUnlabeledIssueCount = entity.unlabeledIssueCount;
     }
+    entity.unlabeledIssueCount = unlabeledIssueCount
     entity.totalIssueCount = total;
     entity.totalBugCount = totalBugs;
     await repoRepository.save(entity);
