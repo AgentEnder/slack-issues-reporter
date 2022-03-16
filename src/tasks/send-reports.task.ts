@@ -37,6 +37,8 @@ async function main() {
                 repo.bugTag
             );
 
+            console.log(`unscoped for ${repo.url}: ${unlabeledIssueCount}`)
+
             const existingScopes = await scopesRepository.find({
                 ghRepo: {
                     id: repo.id,
@@ -45,7 +47,6 @@ async function main() {
 
             existingScopes.forEach((scope) => {
                 const s = scopes.find((s) => s.tag === scope.tag);
-                console.log("Updating scope s", scope, s);
                 if (s) {
                     scope.previousCount = scope.count;
                     scope.previousBugCount = scope.bugCount;

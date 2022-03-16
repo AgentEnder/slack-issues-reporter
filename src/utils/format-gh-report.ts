@@ -20,7 +20,7 @@ export function formatGhReport(repo: IGhRepo): string {
 \`\`\`
 Totals, Issues: ${repo.totalIssueCount} ${formattedIssueDelta} Bugs: ${repo.totalBugCount} ${formattedBugDelta}\n\n`;
 
-    let body = `unlabeled: ${repo.unlabeledIssueCount} ${formattedUnlabeledDelta}`;
+    let body = `unlabeled: ${repo.unlabeledIssueCount} ${formattedUnlabeledDelta} \n`;
     for (const scope of repo.scopes) {
         const issueDelta = scope.previousCount
             ? scope.count - scope.previousCount

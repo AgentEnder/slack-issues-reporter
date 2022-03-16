@@ -48,11 +48,6 @@ export async function showConfigurationModal(channelId?: string) {
         },
         relations: ["scopes"]
     });
-    if (entity) {
-        console.log('Found existing configuration', entity)
-    } else {
-        console.log('No existing configuration for conversation', channelId)
-    }
     return {
         title: {
             type: "plain_text",
