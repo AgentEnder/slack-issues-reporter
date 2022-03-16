@@ -17,6 +17,7 @@ import { ConfigFormSubmission, ConfigFormValues } from "./models/slack.models";
 import { registerGithubRepository } from "./commands/register-github-repo.command";
 import { createConnection } from "typeorm";
 import { formatGhReport } from "./utils/format-gh-report";
+import { sendReportToChannel } from "./commands/send-report.command";
 
 createConnection();
 
@@ -35,52 +36,74 @@ app.post("/config", (req, res) => {
   res.end(JSON.stringify(showConfigurationModalPrompt()));
 });
 
-app.post("/slack/interactivity", async (req, res) => {
-  res.setHeader("Content-Type", "application/json");
+app.post("/slack/interactivity", (req, res, next) => {
+  asyncHandler(async () => {
+    res.setHeader("Content-Type", "application/json");
 
-  const payload = JSON.parse(req.body?.payload);
-  const actions: Array<any> = payload?.actions || [];
+    const payload = JSON.parse(req.body?.payload);
+    const actions: Array<any> = payload?.actions || [];
 
-  if (checkInteractiveIsConfigForm(payload)) {
-    const values = Object.values(payload.view.state.values).reduce(
-      (current, next) => {
-        Object.assign(current, next);
-        return current;
-      },
-      {}
-    ) as ConfigFormValues;
+    if (checkInteractiveIsConfigForm(payload)) {
+      const values = Object.values(payload.view.state.values).reduce(
+        (current, next) => {
+          Object.assign(current, next);
+          return current;
+        },
+        {}
+      ) as ConfigFormValues;
 
-    const responseUrl = payload.response_urls[0];
+      const responseUrl = payload.response_urls[0];
 
-    res.sendStatus(204);
-    res.end();
+      res.sendStatus(204);
+      res.end();
 
-    const repo = await registerGithubRepository(
-      values[GITHUB_URL_ACTION].value,
-      values[SCOPE_INPUT_ACTION].value.split("\n"),
-      values[BUG_LABEL_ACTION].value,
-      values[CONVERSATION_SELECT_ACTION].selected_conversation
-    );
+      const repo = await registerGithubRepository(
+        values[GITHUB_URL_ACTION].value,
+        values[SCOPE_INPUT_ACTION].value.split("\n"),
+        values[BUG_LABEL_ACTION].value,
+        values[CONVERSATION_SELECT_ACTION].selected_conversation
+      );
 
-    console.log("Formatted data: ", formatGhReport(repo));
+      await fetch(responseUrl.response_url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: formatGhReport(repo),
+          mrkdown: true,
+        }),
+      });
 
-    await fetch(responseUrl.response_url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        text: formatGhReport(repo),
-        mrkdown: true,
-      }),
-    });
+      return;
+    }
+    if (actions.some((x) => x.action_id === SHOW_MODAL_BUTTON)) {
+      return await handleShowModal(payload, res);
+    }
+  }, next);
+});
 
-    return;
-  }
-
-  if (actions.some((x) => x.action_id === SHOW_MODAL_BUTTON)) {
-    return await handleShowModal(payload, res);
-  }
+app.post("/publish-report", (req, res, next) => {
+  asyncHandler(async () => {
+    const { channel_id, response_url } = req.body;
+    res.status(200).end();
+    try {
+      await sendReportToChannel(channel_id, response_url);
+    } catch (ex) {
+      await fetch(response_url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: `Unable to publish report for channel.\n \`\`\`${JSON.stringify(
+            ex.toString()
+          )}\`\`\``,
+          mrkdown: true,
+        }),
+      });
+    }
+  }, next);
 });
 
 app.listen(port, () => {
@@ -111,4 +134,14 @@ function checkInteractiveIsConfigForm(
   payload: any
 ): payload is ConfigFormSubmission {
   return payload?.type === "view_submission";
+}
+
+function asyncHandler<T>(
+  handler: () => Promise<T>,
+  errorHandler: express.NextFunction
+) {
+  handler().catch( function (this: unknown, ...args) {
+    console.error(args);
+    errorHandler.apply(this, args);
+  });
 }

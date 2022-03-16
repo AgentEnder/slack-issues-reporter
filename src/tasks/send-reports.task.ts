@@ -1,4 +1,4 @@
-import { createConnection, getRepository } from "typeorm";
+import { createConnection, Repository } from "typeorm";
 import fetch from "node-fetch";
 
 import { GhRepo, GhRepoScope } from "../entity/gh-repo.entity";
@@ -26,47 +26,68 @@ async function main() {
     });
     iterated += slice.length;
     for (const repo of slice) {
-      const {
-        totalBugCount: totalBugs,
-        totalIssueCount: total,
-        unlabeledIssueCount,
-        scopes,
-      } = await getGhRepo(
-        repo.url,
-        repo.scopes.map((x) => x.tag),
-        repo.bugTag
-      );
+      sendReport(repo, repoRepository, scopesRepository);
+    }
+  }
+}
 
-      console.log(`unscoped for ${repo.url}: ${unlabeledIssueCount}`);
+export async function sendReport(
+  repo: GhRepo,
+  repoRepository: Repository<GhRepo>,
+  scopesRepository: Repository<GhRepoScope>,
+  responseUrl?: string
+) {
+  const {
+    totalBugCount: totalBugs,
+    totalIssueCount: total,
+    unlabeledIssueCount,
+    scopes,
+  } = await getGhRepo(
+    repo.url,
+    repo.scopes.map((x) => x.tag),
+    repo.bugTag
+  );
 
-      const existingScopes = await scopesRepository.find({
-        ghRepo: {
-          id: repo.id,
+  const existingScopes = await scopesRepository.find({
+    ghRepo: {
+      id: repo.id,
+    },
+  });
+
+  existingScopes.forEach((scope) => {
+    const s = scopes.find((s) => s.tag === scope.tag);
+    if (s) {
+      scope.previousCount = scope.count;
+      scope.previousBugCount = scope.bugCount;
+      scope.count = s.count;
+      scope.bugCount = s.bugCount;
+    }
+  });
+  await scopesRepository.save(existingScopes);
+  repo.prevBugCount = repo.totalBugCount;
+  repo.prevIssueCount = repo.totalIssueCount;
+  repo.prevUnlabeledIssueCount = repo.unlabeledIssueCount;
+  repo.unlabeledIssueCount = unlabeledIssueCount;
+  repo.totalBugCount = totalBugs;
+  repo.totalIssueCount = total;
+  await repoRepository.save(repo);
+
+  repo.scopes = existingScopes;
+
+  const response = await (responseUrl
+    ? fetch(responseUrl, {
+        method: "POST",
+        headers: {
+          Authorization,
+          "Content-Type": "application/json",
         },
-      });
-
-      existingScopes.forEach((scope) => {
-        const s = scopes.find((s) => s.tag === scope.tag);
-        if (s) {
-          scope.previousCount = scope.count;
-          scope.previousBugCount = scope.bugCount;
-          scope.count = s.count;
-          scope.bugCount = s.bugCount;
-        }
-      });
-      await scopesRepository.save(existingScopes);
-      repo.prevBugCount = repo.totalBugCount;
-      repo.prevIssueCount = repo.totalIssueCount;
-      repo.prevUnlabeledIssueCount = repo.unlabeledIssueCount;
-      repo.unlabeledIssueCount = unlabeledIssueCount;
-      repo.totalBugCount = totalBugs;
-      repo.totalIssueCount = total;
-      await repoRepository.save(repo);
-
-      console.log(repo.scopes, existingScopes);
-      repo.scopes = existingScopes;
-
-      const response = await fetch("https://slack.com/api/chat.postMessage", {
+        body: JSON.stringify({
+          response_type: "in_channel",
+          text: formatGhReport(repo),
+          mrkdwn: true,
+        }),
+      })
+    : fetch("https://slack.com/api/chat.postMessage", {
         method: "POST",
         headers: {
           Authorization,
@@ -77,17 +98,23 @@ async function main() {
           text: formatGhReport(repo),
           mrkdwn: true,
         }),
-      }).then((x) => x.json());
-      if (!response.ok && response.error === "channel_not_found") {
-        const scopes = await scopesRepository.find({
-          ghRepo: {
-            id: repo.id,
-          },
-        });
-        await scopesRepository.remove(scopes);
-        await repoRepository.remove(repo);
-      }
-    }
+      })
+  ).then((x) =>
+    responseUrl
+      ? x.text().then((t) => ({
+          ok: t,
+        }))
+      : x.json()
+  );
+
+  if (!response.ok && response.error === "channel_not_found") {
+    // const scopes = await scopesRepository.find({
+    //   ghRepo: {
+    //     id: repo.id,
+    //   },
+    // });
+    // await scopesRepository.remove(scopes);
+    // await repoRepository.remove(repo);
   }
 }
 
