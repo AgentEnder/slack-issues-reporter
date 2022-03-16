@@ -15,8 +15,14 @@ export function formatGhReport(repo: IGhRepo): string {
     ? repo.unlabeledIssueCount - repo.prevUnlabeledIssueCount
     : null;
   const formattedUnlabeledDelta = formatDelta(unlabeledDelta);
+  const labelFilters = repo.scopes.map((s) => `-label:"${s.tag}"`);
+  const unlabeledIssueUrl = `${
+    repo.url
+  }/issues/?q=is%3Aopen+is%3Aissue+sort%3Aupdated-desc+${encodeURIComponent(
+    labelFilters.join(" ")
+  )}`;
 
-  const header = `Issue Report for ${repo.url}
+  const header = `Issue Report for ${repo.url} <${unlabeledIssueUrl}|[view unlabeled]>
 \`\`\`
 Totals, Issues: ${repo.totalIssueCount} ${formattedIssueDelta} Bugs: ${repo.totalBugCount} ${formattedBugDelta}\n\n`;
 
